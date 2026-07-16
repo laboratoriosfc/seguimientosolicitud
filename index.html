@@ -729,7 +729,7 @@ let filtroActual = "todas";
 let busquedaTicket = "";
 
 function uid(){ return Math.random().toString(36).slice(2,9); }
-const NOTIFICAR_EMAILS = ["mfernandez@fclaboratorios.com"];
+const NOTIFICAR_EMAILS = ["mfernandez@fclaboratorios.com", "agarcia@fclaboratorios.com", "yguardia@fclaboratorios.com"];
 
 // ======= ENVÍO AUTOMÁTICO DE CORREO (EmailJS) =======
 // 1. Crea una cuenta gratis en https://www.emailjs.com
@@ -745,7 +745,7 @@ const EMAILJS_TEMPLATE_ID = "template_9bjbsmj";
 async function enviarNotificacionAutomatica(sol){
   if(EMAILJS_PUBLIC_KEY === "TU_PUBLIC_KEY") return false;
   try{
-    await cargarScript(CDN_URLS.emailjs);
+    await cargarScript(CDN_URLS.emailjs, "emailjs");
     if(!window.emailjs) return false;
     emailjs.init(EMAILJS_PUBLIC_KEY);
     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
@@ -830,10 +830,17 @@ const CDN_URLS = {
   chart: "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js",
   html2canvas: "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
   jspdf: "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
-  emailjs: "https://cdnjs.cloudflare.com/ajax/libs/emailjs-com/3.2.0/email.min.js"
+  emailjs: "https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"
+};
+const CDN_URLS_RESPALDO = {
+  emailjs: [
+    "https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/emailjs-com/3.2.0/email.min.js",
+    "https://unpkg.com/emailjs-com@3/dist/email.min.js"
+  ]
 };
 const scriptsCargados = {};
-function cargarScript(src){
+function cargarScriptUnico(src){
   if(scriptsCargados[src]) return scriptsCargados[src];
   scriptsCargados[src] = new Promise((resolve, reject)=>{
     const s = document.createElement("script");
@@ -843,6 +850,19 @@ function cargarScript(src){
     document.head.appendChild(s);
   });
   return scriptsCargados[src];
+}
+async function cargarScript(srcOPrincipal, nombreRespaldo){
+  const opciones = CDN_URLS_RESPALDO[nombreRespaldo] || [srcOPrincipal];
+  let ultimoError = null;
+  for(const url of opciones){
+    try{
+      await cargarScriptUnico(url);
+      return;
+    }catch(e){
+      ultimoError = e;
+    }
+  }
+  throw ultimoError || new Error("No se pudo cargar ninguna fuente para " + nombreRespaldo);
 }
 
 function folio(n){ return "SOL-" + String(n).padStart(4,"0"); }
