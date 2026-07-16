@@ -140,10 +140,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/emailjs-com/3.2.0/email.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -559,12 +555,12 @@
 // Reemplaza estos valores con los de tu proyecto:
 // Firebase Console → Configuración del proyecto → Tus apps → SDK setup and configuration
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyBAIsGAtVSSG_4nb85GEnN5xf45x2jYDHI",
+  authDomain: "seguimiento-de-solicitudes.firebaseapp.com",
+  projectId: "seguimiento-de-solicitudes",
+  storageBucket: "seguimiento-de-solicitudes.firebasestorage.app",
+  messagingSenderId: "392958213308",
+  appId: "1:392958213308:web:72e523d3d1b973163524b9"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -746,14 +742,12 @@ const NOTIFICAR_EMAILS = ["mfernandez@fclaboratorios.com"];
 const EMAILJS_PUBLIC_KEY = "TU_PUBLIC_KEY";
 const EMAILJS_SERVICE_ID = "TU_SERVICE_ID";
 const EMAILJS_TEMPLATE_ID = "TU_TEMPLATE_ID";
-let emailjsListo = false;
-if(window.emailjs && EMAILJS_PUBLIC_KEY !== "TU_PUBLIC_KEY"){
-  try{ emailjs.init(EMAILJS_PUBLIC_KEY); emailjsListo = true; }
-  catch(e){ console.error("No se pudo inicializar EmailJS", e); }
-}
 async function enviarNotificacionAutomatica(sol){
-  if(!emailjsListo) return false;
+  if(EMAILJS_PUBLIC_KEY === "TU_PUBLIC_KEY") return false;
   try{
+    await cargarScript(CDN_URLS.emailjs);
+    if(!window.emailjs) return false;
+    emailjs.init(EMAILJS_PUBLIC_KEY);
     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
       to_email: NOTIFICAR_EMAILS.join(", "),
       folio: sol.folio,
@@ -832,6 +826,25 @@ function renderAviso(){
     }
   });
 }
+const CDN_URLS = {
+  chart: "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js",
+  html2canvas: "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+  jspdf: "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+  emailjs: "https://cdnjs.cloudflare.com/ajax/libs/emailjs-com/3.2.0/email.min.js"
+};
+const scriptsCargados = {};
+function cargarScript(src){
+  if(scriptsCargados[src]) return scriptsCargados[src];
+  scriptsCargados[src] = new Promise((resolve, reject)=>{
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("No se pudo cargar " + src));
+    document.head.appendChild(s);
+  });
+  return scriptsCargados[src];
+}
+
 function folio(n){ return "SOL-" + String(n).padStart(4,"0"); }
 
 let primeraCarga = true;
@@ -914,6 +927,12 @@ function escapeHtml(str){
 }
 
 async function generarPdfDeElemento(el, nombreArchivo){
+  try{
+    await Promise.all([cargarScript(CDN_URLS.html2canvas), cargarScript(CDN_URLS.jspdf)]);
+  }catch(e){
+    avisar("No se pudo cargar la herramienta de PDF. Verifica tu conexión e intenta de nuevo.");
+    return;
+  }
   if(!window.html2canvas || !window.jspdf){
     avisar("No se pudo cargar la herramienta de PDF. Verifica tu conexión e intenta de nuevo.");
     return;
@@ -1049,7 +1068,10 @@ function calcularEstadisticas(){
 let chartLinea = null;
 let chartEtapas = null;
 
-function mostrarEstadisticas(){
+async function mostrarEstadisticas(){
+  try{ await cargarScript(CDN_URLS.chart); }
+  catch(e){ avisar("No se pudo cargar la herramienta de gráficas. Verifica tu conexión e intenta de nuevo."); return; }
+
   const stats = calcularEstadisticas();
   const cont = document.getElementById("statsContenido");
   const entradasLinea = Object.entries(stats.porLinea).sort((a,b)=>b[1]-a[1]);
@@ -1109,6 +1131,8 @@ function mostrarEstadisticas(){
 }
 
 async function descargarReporteImagen(){
+  try{ await cargarScript(CDN_URLS.html2canvas); }
+  catch(e){ avisar("No se pudo cargar la herramienta de descarga. Verifica tu conexión e intenta de nuevo."); return; }
   if(!window.html2canvas){ avisar("No se pudo cargar la herramienta de descarga. Verifica tu conexión e intenta de nuevo."); return; }
   const el = document.querySelector("#overlayStats .modal");
   try{
