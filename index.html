@@ -238,6 +238,16 @@
   </div>
 </div>
 
+<div class="overlay" id="overlayHistorial">
+  <div class="modal" style="max-width:520px;">
+    <h2 id="historialTitulo">Historial</h2>
+    <div id="historialContenido"></div>
+    <div class="modal-actions">
+      <button class="btn" id="historialCerrar">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="overlayNew">
   <div class="modal">
     <h2>Nueva solicitud</h2>
@@ -989,6 +999,48 @@ function escapeHtml(str){
   return (str||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+function agregarHistorial(sol, accion, detalle){
+  if(!Array.isArray(sol.historial)) sol.historial = [];
+  sol.historial.push({
+    fecha: Date.now(),
+    usuario: (auth.currentUser && auth.currentUser.email) || "—",
+    accion: accion,
+    detalle: detalle || ""
+  });
+}
+
+function formatFechaHora(ts){
+  if(!ts) return "—";
+  const d = new Date(ts);
+  return d.toLocaleString("es-VE", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+}
+
+function quienYCuando(e){
+  const partes = [];
+  if(e.usuario) partes.push(escapeHtml(e.usuario));
+  if(e.fecha) partes.push(escapeHtml(formatFechaHora(e.fecha)));
+  return partes.length ? " — " + partes.join(" · ") : "";
+}
+
+function mostrarHistorial(sol){
+  const cont = document.getElementById("historialContenido");
+  const entradas = (sol.historial || []).slice().sort((a,b)=> b.fecha - a.fecha);
+  if(entradas.length === 0){
+    cont.innerHTML = '<p style="font-size:12.5px; color:var(--ink-soft);">Aún no hay movimientos registrados para esta solicitud.</p>';
+  }else{
+    cont.innerHTML = `<div class="timeline">` + entradas.map(h=>`
+      <div class="paso">
+        <div class="paso-head">
+          <span class="paso-area">${escapeHtml(formatFechaHora(h.fecha))}</span>
+          <span class="paso-label"><b>${escapeHtml(h.accion)}</b>${h.detalle ? " — " + escapeHtml(h.detalle) : ""}</span>
+        </div>
+        <div class="paso-cuerpo"><span style="font-size:11.5px; color:var(--ink-soft);">${escapeHtml(h.usuario)}</span></div>
+      </div>`).join("") + `</div>`;
+  }
+  document.getElementById("historialTitulo").textContent = "Historial — " + sol.folio;
+  document.getElementById("overlayHistorial").classList.add("open");
+}
+
 async function generarPdfDeElemento(el, nombreArchivo){
   try{
     await Promise.all([cargarScript(CDN_URLS.html2canvas, "html2canvas"), cargarScript(CDN_URLS.jspdf, "jspdf")]);
@@ -1215,35 +1267,35 @@ function renderTimeline(sol){
     let cuerpo = "";
     if(cerrada){
       if(def.tipo === "check"){
-        cuerpo = `<div class="paso-ok">${e.hecho ? "Hecho" : "No completado"}</div>`;
+        cuerpo = `<div class="paso-ok">${e.hecho ? "Hecho" + quienYCuando(e) : "No completado"}</div>`;
       } else if(def.tipo === "recibida_orden"){
-        cuerpo = `<div class="paso-ok">${e.hecho ? "Hecho" + (e.numeroOrden ? " — Orden N.º " + escapeHtml(e.numeroOrden) : "") : "No completado"}</div>`;
+        cuerpo = `<div class="paso-ok">${e.hecho ? "Hecho" + (e.numeroOrden ? " — Orden N.º " + escapeHtml(e.numeroOrden) : "") + quienYCuando(e) : "No completado"}</div>`;
       } else if(def.tipo === "firma"){
-        cuerpo = `<div class="paso-ok">${e.hecho ? "Firmado por " + escapeHtml(e.nombreDirector || "—") : "No completado"}</div>`;
+        cuerpo = `<div class="paso-ok">${e.hecho ? "Firmado por " + escapeHtml(e.nombreDirector || "—") + quienYCuando(e) : "No completado"}</div>`;
       } else if(def.tipo === "aprobacion_cond" || def.tipo === "aprobacion_obs"){
         cuerpo = e.estado === "aprobado"
-          ? `<div class="paso-ok">Aprobado${e.observacion ? " — " + escapeHtml(e.observacion) : ""}</div>`
+          ? `<div class="paso-ok">Aprobado${quienYCuando(e)}${e.observacion ? " — " + escapeHtml(e.observacion) : ""}</div>`
           : `<div class="paso-ok">—</div>`;
       } else if(def.tipo === "fecha_estimada"){
         cuerpo = `<div class="paso-ok">${escapeHtml(e.fechaEstimada || "—")}</div>`;
       } else if(def.tipo === "factura"){
         cuerpo = `<div class="paso-ok">${escapeHtml(e.valor || "—")}</div>`;
       } else if(def.tipo === "recepcion"){
-        cuerpo = `<div class="paso-ok">Material recibido el ${e.fechaRecibido}${e.observacion ? " — " + escapeHtml(e.observacion) : ""}</div>`;
+        cuerpo = `<div class="paso-ok">Material recibido el ${e.fechaRecibido}${quienYCuando(e)}${e.observacion ? " — " + escapeHtml(e.observacion) : ""}</div>`;
       }
     } else if(def.tipo === "check"){
       cuerpo = e.hecho
-        ? `<div class="paso-ok">Hecho</div>`
+        ? `<div class="paso-ok">Hecho${e.usuario ? " — " + escapeHtml(e.usuario) : ""}</div>`
         : `<button class="btn small" data-check="${def.key}" data-id="${sol.id}">${def.accion}</button>`;
     } else if(def.tipo === "recibida_orden"){
       cuerpo = e.hecho
-        ? `<div class="paso-ok">Hecho${e.numeroOrden ? " — Orden N.º " + escapeHtml(e.numeroOrden) : ""}</div>`
+        ? `<div class="paso-ok">Hecho${e.numeroOrden ? " — Orden N.º " + escapeHtml(e.numeroOrden) : ""}${e.usuario ? " — " + escapeHtml(e.usuario) : ""}</div>`
         : `
           <input type="text" class="paso-input" placeholder="Número de orden de compra" data-orden-numero="${sol.id}" value="${escapeHtml(e.numeroOrden || "")}">
           <button class="btn small" data-check="${def.key}" data-id="${sol.id}">${def.accion}</button>`;
     } else if(def.tipo === "firma"){
       cuerpo = e.hecho
-        ? `<div class="paso-ok">Firmado por ${escapeHtml(e.nombreDirector || "—")}</div>`
+        ? `<div class="paso-ok">Firmado por ${escapeHtml(e.nombreDirector || "—")}${e.usuario ? " (" + escapeHtml(e.usuario) + ")" : ""}</div>`
         : `<select class="paso-input" data-firma-nombre="${sol.id}">
              <option value="">Selecciona quién firma</option>
              <option ${e.nombreDirector === "Jesús Uzcátegui" ? "selected" : ""}>Jesús Uzcátegui</option>
@@ -1252,7 +1304,7 @@ function renderTimeline(sol){
            <button class="btn small" data-firma-confirmar="${sol.id}">Marcar firmado</button>`;
     } else if(def.tipo === "aprobacion_cond"){
       if(e.estado === "aprobado"){
-        cuerpo = `<div class="paso-ok">Aprobado</div>`;
+        cuerpo = `<div class="paso-ok">Aprobado${quienYCuando(e)}</div>`;
       }else{
         cuerpo = `
           <button class="btn small" data-aprobar="${def.key}" data-id="${sol.id}">Aprobar</button>
@@ -1264,7 +1316,7 @@ function renderTimeline(sol){
       }
     } else if(def.tipo === "aprobacion_obs"){
       if(e.estado === "aprobado"){
-        cuerpo = `<div class="paso-ok">Aprobado${e.observacion ? " — " + escapeHtml(e.observacion) : ""}</div>`;
+        cuerpo = `<div class="paso-ok">Aprobado${quienYCuando(e)}${e.observacion ? " — " + escapeHtml(e.observacion) : ""}</div>`;
       }else{
         cuerpo = `
           <textarea class="paso-input" placeholder="Observación (opcional)" data-obs="${def.key}" data-id="${sol.id}">${escapeHtml(e.observacion || "")}</textarea>
@@ -1310,7 +1362,7 @@ function renderTimeline(sol){
 
   const banner = sol.ultimoRechazo ? `
     <div class="rechazo-banner">
-      <span>Se rechazó en <b>${escapeHtml(sol.ultimoRechazo.etapa)}</b>${sol.ultimoRechazo.observacion ? ': "' + escapeHtml(sol.ultimoRechazo.observacion) + '"' : ""}. El proceso volvió a <b>${escapeHtml(sol.ultimoRechazo.regresoA || "")}</b>.</span>
+      <span>Se rechazó en <b>${escapeHtml(sol.ultimoRechazo.etapa)}</b>${sol.ultimoRechazo.observacion ? ': "' + escapeHtml(sol.ultimoRechazo.observacion) + '"' : ""} (por ${escapeHtml(sol.ultimoRechazo.usuario || "—")}). El proceso volvió a <b>${escapeHtml(sol.ultimoRechazo.regresoA || "")}</b>.</span>
     </div>` : "";
 
   const cierreBanner = cerrada ? `<div class="cierre-banner">Solicitud cerrada — material recibido el ${sol.etapas.comprasRecepcion.fechaRecibido}</div>` : "";
@@ -1326,7 +1378,8 @@ function rechazarEtapaEnSolicitud(sol, key, observacion){
     etapa: def.area + " — " + def.label,
     observacion,
     fecha: Date.now(),
-    regresoA: "Gerencia de Mercadeo"
+    regresoA: "Gerencia de Mercadeo",
+    usuario: (auth.currentUser && auth.currentUser.email) || "—"
   };
   keysAReiniciar.forEach(k => { sol.etapas[k] = inicial[k]; });
 }
@@ -1414,6 +1467,7 @@ function render(){
       <div class="card-actions">
         <span>${(!s.rechazadaDefinitiva && estadoSolicitud(s) !== "completada") ? `<button class="link-btn" data-cancelar-definitivo="${s.id}">Marcar solicitud como cancelada</button>` : ""}</span>
         <span style="display:flex; gap:14px;">
+          <button class="link-btn" data-historial="${s.id}">Historial</button>
           <button class="link-btn" data-print="${s.id}">Descargar PDF</button>
           <button class="link-btn" data-del="${s.id}">Eliminar</button>
         </span>
@@ -1425,6 +1479,16 @@ function render(){
     el.addEventListener("click", ()=>{
       const sol = buscar(el.getAttribute("data-print"));
       if(sol) imprimirSolicitud(sol);
+    });
+  });
+
+  list.querySelectorAll("[data-historial]").forEach(el=>{
+    el.addEventListener("click", async ()=>{
+      const sol = buscar(el.getAttribute("data-historial"));
+      if(!sol) return;
+      const autorizado = await pedirAutorizacion();
+      if(!autorizado) return;
+      mostrarHistorial(sol);
     });
   });
 
@@ -1459,6 +1523,9 @@ function render(){
       }
       sol.etapas[key].hecho = true;
       sol.etapas[key].fecha = Date.now();
+      sol.etapas[key].usuario = (auth.currentUser && auth.currentUser.email) || "—";
+      const def = ETAPAS_DEF.find(d=>d.key===key);
+      agregarHistorial(sol, (def ? def.area + ": " + def.label : key) + " marcado", key === "comprasRecibida" ? ("Orden: " + (sol.etapas.comprasRecibida.numeroOrden || "—")) : "");
       render();
       await guardarSolicitudes();
     });
@@ -1477,6 +1544,8 @@ function render(){
       sol.etapas.direccionFirma.nombreDirector = nombre;
       sol.etapas.direccionFirma.hecho = true;
       sol.etapas.direccionFirma.fecha = Date.now();
+      sol.etapas.direccionFirma.usuario = (auth.currentUser && auth.currentUser.email) || "—";
+      agregarHistorial(sol, "Dirección de Mercadeo: Firmado", "Firmado por " + nombre);
       render();
       await guardarSolicitudes();
     });
@@ -1503,6 +1572,9 @@ function render(){
       if(!autorizado) return;
       sol.etapas[key].estado = "aprobado";
       sol.etapas[key].fecha = Date.now();
+      sol.etapas[key].usuario = (auth.currentUser && auth.currentUser.email) || "—";
+      const def = ETAPAS_DEF.find(d=>d.key===key);
+      agregarHistorial(sol, (def ? def.area : key) + ": Aprobado", sol.etapas[key].observacion || "");
       render();
       await guardarSolicitudes();
     });
@@ -1516,6 +1588,8 @@ function render(){
       const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS[key]);
       if(!autorizado) return;
       const observacion = (sol.etapas[key].observacion || "").trim();
+      const def = ETAPAS_DEF.find(d=>d.key===key);
+      agregarHistorial(sol, (def ? def.area : key) + ": Rechazado", observacion);
       rechazarEtapaEnSolicitud(sol, key, observacion);
       render();
       await guardarSolicitudes();
@@ -1542,6 +1616,8 @@ function render(){
       if(!autorizado) return;
       const textarea = document.getElementById(`obsCondTexto-${key}-${id}`);
       const observacion = textarea ? textarea.value.trim() : "";
+      const def = ETAPAS_DEF.find(d=>d.key===key);
+      agregarHistorial(sol, (def ? def.area : key) + ": Rechazado", observacion);
       rechazarEtapaEnSolicitud(sol, key, observacion);
       render();
       await guardarSolicitudes();
@@ -1555,6 +1631,7 @@ function render(){
       const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS.comprasFechaEstimada);
       if(!autorizado){ render(); return; }
       sol.etapas.comprasFechaEstimada.fechaEstimada = el.value;
+      agregarHistorial(sol, "Compras: Fecha de recepción de expediente", el.value);
       render();
       await guardarSolicitudes();
     });
@@ -1589,6 +1666,7 @@ function render(){
       const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS.facturaRecibida);
       if(!autorizado){ render(); return; }
       sol.etapas.facturaRecibida.valor = el.value;
+      agregarHistorial(sol, "Compras: Factura recibida", el.value);
       await guardarSolicitudes();
     });
   });
@@ -1604,6 +1682,8 @@ function render(){
         sol.etapas.comprasRecepcion.fechaRecibido = new Date().toISOString().slice(0,10);
       }
       sol.etapas.comprasRecepcion.fecha = Date.now();
+      sol.etapas.comprasRecepcion.usuario = (auth.currentUser && auth.currentUser.email) || "—";
+      agregarHistorial(sol, "Compras: Material recibido", "Recibido el " + sol.etapas.comprasRecepcion.fechaRecibido);
       render();
       await guardarSolicitudes();
     });
@@ -1617,6 +1697,7 @@ function render(){
       if(!autorizado) return;
       if(!(await confirmarAccion("¿Marcar esta solicitud como cancelada? No podrá deshacerse desde aquí.", "Cancelar solicitud"))) return;
       sol.rechazadaDefinitiva = true;
+      agregarHistorial(sol, "Solicitud marcada como cancelada", "");
       render();
       await guardarSolicitudes();
     });
@@ -1752,6 +1833,9 @@ document.getElementById("btnStats").addEventListener("click", async ()=>{
   if(!autorizado) return;
   mostrarEstadisticas();
 });
+document.getElementById("historialCerrar").addEventListener("click", ()=>{
+  document.getElementById("overlayHistorial").classList.remove("open");
+});
 document.getElementById("statsCerrar").addEventListener("click", ()=>{
   document.getElementById("overlayStats").classList.remove("open");
 });
@@ -1877,7 +1961,8 @@ document.getElementById("saveNew").addEventListener("click", async ()=>{
     etapas: etapasIniciales(),
     ultimoRechazo: null,
     rechazadaDefinitiva: false,
-    creada: Date.now()
+    creada: Date.now(),
+    historial: [{ fecha: Date.now(), usuario: correo || nombre || "Solicitante", accion: "Solicitud creada", detalle: "" }]
   };
   solicitudes.push(nuevaSolicitud);
   document.getElementById("overlayNew").classList.remove("open");
