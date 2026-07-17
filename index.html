@@ -339,7 +339,7 @@
       <input type="text" id="fProductoOtro" placeholder="Nombre del producto">
     </div>
     <div class="field">
-      <label>Notas adicionales</label>
+      <label>Notas adicionales (opcional)</label>
       <textarea id="fDesc" placeholder="Detalle adicional de la solicitud"></textarea>
     </div>
 
@@ -491,7 +491,7 @@
       </select>
     </div>
     <div class="field">
-      <label>Información adicional del material</label>
+      <label>Información adicional del material (opcional)</label>
       <textarea id="fMaterialInfo" placeholder="Cualquier especificación adicional del material"></textarea>
     </div>
     <div class="field">
@@ -761,7 +761,23 @@ const DEFAULT_PRODUCTOS = [
   "VITAMINA C - 50mg/5ml JARABE 120ML",
   "VITAMINA C  X 15 CAPS",
   "VITAMINA C  X 30 CAPS",
-  "VITAMINA C 1g GRANULADO SOBRES x10"
+  "VITAMINA C 1g GRANULADO SOBRES x10",
+  "FAMILIA CELISTIA",
+  "FAMILIA ANAPIR",
+  "FAMILIA MENTORUB",
+  "FAMILIA PERLAVIS",
+  "FAMILIA SULIXTRA",
+  "FAMILIA SINUTIL",
+  "FAMILIA DARLIDE",
+  "FAMILIA EXOVIS",
+  "LINEA CARDIO",
+  "LINEA UROLOGICA",
+  "LINEA GASTRO",
+  "LINEA DOLOR",
+  "LINEA ANTIBIOTICOS",
+  "LINEA GINECOLOGICA",
+  "LINEA SISTEMA NERVIOSO CENTRAL",
+  "LINEA OLE"
 ];
 let productos = [];
 let solicitudes = [];
@@ -1903,7 +1919,6 @@ document.getElementById("saveNew").addEventListener("click", async ()=>{
     { invalida: !prioridad, mensaje: "Selecciona la prioridad." },
     { invalida: !producto, mensaje: "Selecciona el producto." },
     { invalida: producto === "Otro producto" && !productoOtro, mensaje: "Especifica el producto." },
-    { invalida: !descripcion, mensaje: "Escribe las notas/descripción de la solicitud." },
     { invalida: !tipoMaterial, mensaje: "Selecciona el tipo de material." },
     { invalida: tipoMaterial === "Otro" && !tipoMaterialOtro, mensaje: "Especifica el tipo de material." },
     { invalida: !gramaje, mensaje: "Selecciona el gramaje del material." },
@@ -1913,7 +1928,6 @@ document.getElementById("saveNew").addEventListener("click", async ()=>{
     { invalida: !cantidad, mensaje: "Ingresa la cantidad a solicitar." },
     { invalida: !esReimpresion, mensaje: "Selecciona si es reimpresión." },
     { invalida: !arteFileData && !arteArchivoLink, mensaje: "Adjunta el archivo del arte o pega un link." },
-    { invalida: !materialInfo, mensaje: "Escribe la información adicional del material." },
     { invalida: !necesitaPrueba, mensaje: "Selecciona si necesita prueba." },
     { invalida: necesitaPrueba === "Otro" && !necesitaPruebaOtro, mensaje: "Especifica el tipo de prueba." },
     { invalida: !artePrueba, mensaje: "Selecciona una opción en Arte/Prueba." },
