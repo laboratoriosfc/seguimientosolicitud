@@ -195,6 +195,7 @@
       <input type="password" id="authPassword" placeholder="Ingresa tu contraseña">
     </div>
     <p id="authError" style="display:none; color:var(--rechazado); font-size:12px; margin:0 0 10px;">Correo o contraseña incorrectos.</p>
+    <p style="margin:0 0 10px;"><button type="button" class="link-btn" id="authOlvide" style="font-size:12px;">¿Olvidaste tu contraseña? Recupérala aquí</button></p>
     <div class="modal-actions">
       <button class="btn secondary" id="authCancelar">Cancelar</button>
       <button class="btn" id="authConfirmar">Confirmar</button>
@@ -1754,6 +1755,19 @@ document.getElementById("statsCerrar").addEventListener("click", ()=>{
 });
 document.getElementById("statsDescargarImg").addEventListener("click", descargarReporteImagen);
 document.getElementById("statsDescargarPdf").addEventListener("click", descargarReportePDF);
+document.getElementById("authOlvide").addEventListener("click", async ()=>{
+  const email = document.getElementById("authEmail").value.trim();
+  if(!email){
+    avisar("Escribe tu correo en el campo de arriba primero, y vuelve a darle clic aquí.");
+    return;
+  }
+  try{
+    await auth.sendPasswordResetEmail(email);
+    avisar("Listo. Si ese correo existe, te llegará un mensaje con un link para crear una contraseña nueva. Revisa también tu carpeta de spam.");
+  }catch(e){
+    avisar("No se pudo enviar el correo de recuperación. Verifica que el correo esté escrito bien e intenta de nuevo.");
+  }
+});
 document.getElementById("cancelNew").addEventListener("click", ()=>{
   document.getElementById("overlayNew").classList.remove("open");
 });
