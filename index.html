@@ -863,6 +863,21 @@ const CDN_URLS = {
   emailjs: "https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"
 };
 const CDN_URLS_RESPALDO = {
+  chart: [
+    "https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js",
+    "https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js"
+  ],
+  html2canvas: [
+    "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+    "https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"
+  ],
+  jspdf: [
+    "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+    "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"
+  ],
   emailjs: [
     "https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js",
     "https://cdnjs.cloudflare.com/ajax/libs/emailjs-com/3.2.0/email.min.js",
@@ -976,7 +991,7 @@ function escapeHtml(str){
 
 async function generarPdfDeElemento(el, nombreArchivo){
   try{
-    await Promise.all([cargarScript(CDN_URLS.html2canvas), cargarScript(CDN_URLS.jspdf)]);
+    await Promise.all([cargarScript(CDN_URLS.html2canvas, "html2canvas"), cargarScript(CDN_URLS.jspdf, "jspdf")]);
   }catch(e){
     avisar("No se pudo cargar la herramienta de PDF. Verifica tu conexión e intenta de nuevo.");
     return;
@@ -1117,7 +1132,7 @@ let chartLinea = null;
 let chartEtapas = null;
 
 async function mostrarEstadisticas(){
-  try{ await cargarScript(CDN_URLS.chart); }
+  try{ await cargarScript(CDN_URLS.chart, "chart"); }
   catch(e){ avisar("No se pudo cargar la herramienta de gráficas. Verifica tu conexión e intenta de nuevo."); return; }
 
   const stats = calcularEstadisticas();
@@ -1179,7 +1194,7 @@ async function mostrarEstadisticas(){
 }
 
 async function descargarReporteImagen(){
-  try{ await cargarScript(CDN_URLS.html2canvas); }
+  try{ await cargarScript(CDN_URLS.html2canvas, "html2canvas"); }
   catch(e){ avisar("No se pudo cargar la herramienta de descarga. Verifica tu conexión e intenta de nuevo."); return; }
   if(!window.html2canvas){ avisar("No se pudo cargar la herramienta de descarga. Verifica tu conexión e intenta de nuevo."); return; }
   const el = document.querySelector("#overlayStats .modal");
