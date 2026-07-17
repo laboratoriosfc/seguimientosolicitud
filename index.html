@@ -498,7 +498,8 @@
     <div class="field">
       <label>Arte del material</label>
       <div style="border:1px dashed var(--border); border-radius:8px; padding:10px 12px; background:var(--bg);">
-        <input type="file" id="fArteFile" accept="image/*,.pdf" style="font-size:12.5px; width:100%;">
+        <input type="file" id="fArteFile" accept="image/*,.pdf,.ai,.eps" style="font-size:12.5px; width:100%;">
+        <div id="arteFileSubiendo" class="hidden" style="margin-top:8px; font-size:12.5px; color:var(--ink-soft);">Subiendo archivo...</div>
         <div id="arteFileInfo" class="hidden" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:12.5px; color:var(--accent-dark);">
           <span id="arteFileNombre"></span>
           <button type="button" class="link-btn" id="arteFileQuitar">Quitar</button>
@@ -508,7 +509,7 @@
         </div>
         <input type="text" id="fArteArchivo" class="paso-input" placeholder="Link del arte (Drive, SharePoint, etc.)">
       </div>
-      <p style="font-size:11px; color:var(--ink-soft); margin:4px 0 0;">Archivos hasta ~0.6 MB (límite de Firestore). Para archivos más grandes, usa el link.</p>
+      <p style="font-size:11px; color:var(--ink-soft); margin:4px 0 0;"><b>Archivos permitidos:</b> imágenes, PDF, Illustrator (.ai) y EPS, hasta <b>0.6 MB</b> por la capacidad del sistema. Si tu archivo pesa más: pégalo como <b>link</b> (Drive, SharePoint, etc.) en el campo de abajo, o <b>envíalo por correo</b> directamente a quien lo vaya a necesitar.</p>
     </div>
     <div class="field">
       <label>¿Necesita prueba?</label>
@@ -535,7 +536,7 @@
 
     <div class="section-label">Aprobación de arte</div>
     <div class="field">
-      <label>¿Este material requiere aprobación de Asuntos Regulatorios?</label>
+      <label>¿Cuenta con aprobación de arte por parte de Asuntos Regulatorios?</label>
       <select id="fArteRegulatorio">
         <option value="">Selecciona una opción</option>
         <option>Si</option>
@@ -566,11 +567,39 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// Correos con permiso para eliminar/cancelar solicitudes (deben existir como
-// usuarios en Firebase Authentication → Users, con la contraseña que definas)
-const AUTORIZADOS_EMAILS = ["mfernandez@fclaboratorios.com", "agarcia@fclaboratorios.com"];
+// Correos con permiso para eliminar/cancelar solicitudes, y para marcar las
+// etapas de Compras (deben existir como usuarios en Firebase Authentication
+// → Users, con la contraseña que definas)
+const AUTORIZADOS_EMAILS = ["mfernandez@fclaboratorios.com", "agarcia@fclaboratorios.com", "yguardia@fclaboratorios.com", "lfontana@fclaboratorios.com"];
+
+// Correos autorizados para completar cada etapa del timeline de aprobación.
+// Cada uno debe existir también como usuario en Firebase Authentication.
+const GERENCIA_MERCADEO_EMAILS = ["vfernandez@fclaboratorios.com", "gfrey@fclaboratorios.com", "gbarrios@fclaboratorios.com", "icordero@fclaboratorios.com", "jbello@fclaboratorios.com"];
+const DIRECCION_MERCADEO_EMAILS = ["juzcategui@fclaboratorios.com", "gcelli@fclaboratorios.com", "cvergara@fclaboratorios.com"];
+const PRESIDENCIA_EMAILS = ["btorres@fclaboratorios.com", "lfontana@fclaboratorios.com"];
+const PRESUPUESTOS_EMAILS = ["mzambrano@fclaboratorios.com"];
+const FINANZAS_EMAILS = ["drosa@fclaboratorios.com"];
+
+// Qué lista de correos puede completar cada etapa. "null" = sin restricción
+// (cualquiera puede completarla, sin pedir inicio de sesión).
+const ETAPA_AUTORIZADOS = {
+  comprasRecibida: AUTORIZADOS_EMAILS,
+  gerenciaPago: GERENCIA_MERCADEO_EMAILS,
+  direccionFirma: DIRECCION_MERCADEO_EMAILS,
+  presidencia: PRESIDENCIA_EMAILS,
+  presupuestos: PRESUPUESTOS_EMAILS,
+  finanzas: FINANZAS_EMAILS,
+  comprasFechaEstimada: AUTORIZADOS_EMAILS,
+  facturaRecibida: AUTORIZADOS_EMAILS,
+  comprasRecepcion: AUTORIZADOS_EMAILS
+};
+
+const TODOS_AUTORIZADOS_EMAILS = Array.from(new Set([
+  ...AUTORIZADOS_EMAILS, ...GERENCIA_MERCADEO_EMAILS, ...DIRECCION_MERCADEO_EMAILS,
+  ...PRESIDENCIA_EMAILS, ...PRESUPUESTOS_EMAILS, ...FINANZAS_EMAILS
+]));
 function esAutorizado(email){
-  return AUTORIZADOS_EMAILS.includes((email || "").trim().toLowerCase());
+  return TODOS_AUTORIZADOS_EMAILS.includes((email || "").trim().toLowerCase());
 }
 // ==========================================
 
@@ -729,7 +758,7 @@ let filtroActual = "todas";
 let busquedaTicket = "";
 
 function uid(){ return Math.random().toString(36).slice(2,9); }
-const NOTIFICAR_EMAILS = ["mfernandez@fclaboratorios.com", "agarcia@fclaboratorios.com", "yguardia@fclaboratorios.com"];
+const NOTIFICAR_EMAILS = ["mfernandez@fclaboratorios.com", "agarcia@fclaboratorios.com"];
 
 // ======= ENVÍO AUTOMÁTICO DE CORREO (EmailJS) =======
 // 1. Crea una cuenta gratis en https://www.emailjs.com
@@ -910,8 +939,7 @@ const ETAPAS_DEF = [
   { key: "presidencia", area: "Presidencia", label: "Aprobación de Presidencia", tipo: "aprobacion_cond" },
   { key: "presupuestos", area: "Presupuestos", label: "Revisión de Presupuestos", tipo: "aprobacion_obs" },
   { key: "finanzas", area: "Director de Finanzas", label: "Aprobación de Finanzas", tipo: "aprobacion_obs" },
-  { key: "regulatorios", area: "Asuntos Regulatorios", label: "Aprobación de arte", tipo: "aprobacion_obs", condicional: true },
-  { key: "comprasFechaEstimada", area: "Compras", label: "Fecha estimada de llegada", tipo: "fecha_estimada" },
+  { key: "comprasFechaEstimada", area: "Compras", label: "Fecha de recepción de expediente", tipo: "fecha_estimada" },
   { key: "facturaRecibida", area: "Compras", label: "Factura recibida", tipo: "factura" },
   { key: "comprasRecepcion", area: "Compras", label: "Recepción del material", tipo: "recepcion" }
 ];
@@ -923,14 +951,13 @@ function etapasIniciales(){
     presidencia: { estado: "pendiente", observacion: "" },
     presupuestos: { estado: "pendiente", observacion: "" },
     finanzas: { estado: "pendiente", observacion: "" },
-    regulatorios: { estado: "pendiente", observacion: "" },
     comprasFechaEstimada: { fechaEstimada: "" },
     facturaRecibida: { valor: "" },
     comprasRecepcion: { materialRecibido: false, fechaRecibido: "", observacion: "" }
   };
 }
 function etapasDe(sol){
-  return ETAPAS_DEF.filter(e => !e.condicional || sol.requiereRegulatorio === "Si");
+  return ETAPAS_DEF.slice();
 }
 function estadoSolicitud(sol){
   if(sol.rechazadaDefinitiva) return "rechazada";
@@ -1017,7 +1044,7 @@ async function imprimirSolicitud(sol){
       <div><b style="display:block; font-size:10px; text-transform:uppercase; color:#666;">Plastificado</b>${escapeHtml(sol.plastificado || "—")}</div>
       <div><b style="display:block; font-size:10px; text-transform:uppercase; color:#666;">Cantidad</b>${escapeHtml(sol.cantidad || "—")}</div>
       <div><b style="display:block; font-size:10px; text-transform:uppercase; color:#666;">Necesita prueba</b>${escapeHtml(sol.necesitaPrueba === "Otro" ? (sol.necesitaPruebaOtro || "Otro") : (sol.necesitaPrueba || "—"))}</div>
-      <div><b style="display:block; font-size:10px; text-transform:uppercase; color:#666;">Requiere Asuntos Regulatorios</b>${escapeHtml(sol.requiereRegulatorio || "—")}</div>
+      <div><b style="display:block; font-size:10px; text-transform:uppercase; color:#666;">Aprobación Asuntos Regulatorios</b>${escapeHtml(sol.aprobacionRegulatorios || "—")}</div>
     </div>
     ${sol.descripcion ? `<p>${escapeHtml(sol.descripcion)}</p>` : ""}
     ${sol.materialInfo ? `<p>${escapeHtml(sol.materialInfo)}</p>` : ""}
@@ -1214,7 +1241,11 @@ function renderTimeline(sol){
     } else if(def.tipo === "firma"){
       cuerpo = e.hecho
         ? `<div class="paso-ok">Firmado por ${escapeHtml(e.nombreDirector || "—")}</div>`
-        : `<input type="text" class="paso-input" placeholder="Nombre del director" data-firma-nombre="${sol.id}" value="${escapeHtml(e.nombreDirector || "")}">
+        : `<select class="paso-input" data-firma-nombre="${sol.id}">
+             <option value="">Selecciona quién firma</option>
+             <option ${e.nombreDirector === "Jesús Uzcátegui" ? "selected" : ""}>Jesús Uzcátegui</option>
+             <option ${e.nombreDirector === "Gerardo Celli" ? "selected" : ""}>Gerardo Celli</option>
+           </select>
            <button class="btn small" data-firma-confirmar="${sol.id}">Marcar firmado</button>`;
     } else if(def.tipo === "aprobacion_cond"){
       if(e.estado === "aprobado"){
@@ -1240,7 +1271,7 @@ function renderTimeline(sol){
     } else if(def.tipo === "fecha_estimada"){
       cuerpo = `
         <input type="date" class="paso-input" data-fecha-estimada="${sol.id}" value="${e.fechaEstimada || ""}">
-        ${e.fechaEstimada ? `<div class="paso-ok" style="margin-top:4px;">Fecha estimada: ${e.fechaEstimada}</div>` : ""}`;
+        ${e.fechaEstimada ? `<div class="paso-ok" style="margin-top:4px;">Fecha de recepción: ${e.fechaEstimada}</div>` : ""}`;
     } else if(def.tipo === "factura"){
       cuerpo = `
         <select class="paso-input" data-factura="${sol.id}">
@@ -1287,7 +1318,7 @@ function renderTimeline(sol){
 function rechazarEtapaEnSolicitud(sol, key, observacion){
   const def = ETAPAS_DEF.find(d => d.key === key);
   const inicial = etapasIniciales();
-  const keysAReiniciar = ["direccionFirma", "presidencia", "presupuestos", "finanzas", "regulatorios"];
+  const keysAReiniciar = ["direccionFirma", "presidencia", "presupuestos", "finanzas"];
   sol.ultimoRechazo = {
     etapa: def.area + " — " + def.label,
     observacion,
@@ -1370,7 +1401,7 @@ function render(){
         <div><div class="k">Necesita prueba</div><div class="v">${escapeHtml(s.necesitaPrueba === "Otro" ? (s.necesitaPruebaOtro || "Otro") : (s.necesitaPrueba || "—"))}</div></div>
         <div><div class="k">Arte/Prueba</div><div class="v">${escapeHtml(s.artePrueba || "—")}</div></div>
         ${s.arteArchivoData ? `<div><div class="k">Arte</div><div class="v"><a href="${s.arteArchivoData}" download="${escapeHtml(s.arteArchivoNombre || "arte")}">Descargar ${escapeHtml(s.arteArchivoNombre || "archivo")}</a></div></div>` : s.arteArchivo ? `<div><div class="k">Arte</div><div class="v"><a href="${escapeHtml(s.arteArchivo)}" target="_blank" rel="noopener">Ver archivo</a></div></div>` : ""}
-        <div><div class="k">Requiere Asuntos Regulatorios</div><div class="v">${escapeHtml(s.requiereRegulatorio || "—")}</div></div>
+        <div><div class="k">Aprobación Asuntos Regulatorios</div><div class="v">${escapeHtml(s.aprobacionRegulatorios || "—")}</div></div>
       </div>
       ${s.materialInfo ? `<div style="padding:10px 16px 0; font-size:12.5px; color:var(--ink-soft);">${escapeHtml(s.materialInfo)}</div>` : ""}
       <div style="padding:14px 16px 4px;">
@@ -1417,6 +1448,8 @@ function render(){
       const sol = buscar(el.getAttribute("data-id"));
       if(!sol) return;
       const key = el.getAttribute("data-check");
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS[key]);
+      if(!autorizado) return;
       if(key === "comprasRecibida"){
         const input = list.querySelector(`[data-orden-numero="${sol.id}"]`);
         sol.etapas.comprasRecibida.numeroOrden = input ? input.value.trim() : "";
@@ -1433,9 +1466,11 @@ function render(){
       const id = el.getAttribute("data-firma-confirmar");
       const sol = buscar(id);
       if(!sol) return;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS.direccionFirma);
+      if(!autorizado) return;
       const input = list.querySelector(`[data-firma-nombre="${id}"]`);
       const nombre = input ? input.value.trim() : "";
-      if(!nombre){ avisar("Ingresa el nombre del director."); return; }
+      if(!nombre){ avisar("Selecciona quién firma."); return; }
       sol.etapas.direccionFirma.nombreDirector = nombre;
       sol.etapas.direccionFirma.hecho = true;
       sol.etapas.direccionFirma.fecha = Date.now();
@@ -1446,9 +1481,12 @@ function render(){
 
   list.querySelectorAll("[data-obs]").forEach(el=>{
     el.addEventListener("change", async ()=>{
+      const key = el.getAttribute("data-obs");
       const sol = buscar(el.getAttribute("data-id"));
       if(!sol) return;
-      sol.etapas[el.getAttribute("data-obs")].observacion = el.value;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS[key]);
+      if(!autorizado){ render(); return; }
+      sol.etapas[key].observacion = el.value;
       await guardarSolicitudes();
     });
   });
@@ -1458,6 +1496,8 @@ function render(){
       const key = el.getAttribute("data-aprobar");
       const sol = buscar(el.getAttribute("data-id"));
       if(!sol) return;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS[key]);
+      if(!autorizado) return;
       sol.etapas[key].estado = "aprobado";
       sol.etapas[key].fecha = Date.now();
       render();
@@ -1470,6 +1510,8 @@ function render(){
       const key = el.getAttribute("data-rechazar");
       const sol = buscar(el.getAttribute("data-id"));
       if(!sol) return;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS[key]);
+      if(!autorizado) return;
       const observacion = (sol.etapas[key].observacion || "").trim();
       rechazarEtapaEnSolicitud(sol, key, observacion);
       render();
@@ -1478,9 +1520,11 @@ function render(){
   });
 
   list.querySelectorAll("[data-rechazar-cond]").forEach(el=>{
-    el.addEventListener("click", ()=>{
+    el.addEventListener("click", async ()=>{
       const key = el.getAttribute("data-rechazar-cond");
       const id = el.getAttribute("data-id");
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS[key]);
+      if(!autorizado) return;
       document.getElementById(`obsCond-${key}-${id}`).classList.remove("hidden");
     });
   });
@@ -1491,6 +1535,8 @@ function render(){
       const id = el.getAttribute("data-id");
       const sol = buscar(id);
       if(!sol) return;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS[key]);
+      if(!autorizado) return;
       const textarea = document.getElementById(`obsCondTexto-${key}-${id}`);
       const observacion = textarea ? textarea.value.trim() : "";
       rechazarEtapaEnSolicitud(sol, key, observacion);
@@ -1503,6 +1549,8 @@ function render(){
     el.addEventListener("change", async ()=>{
       const sol = buscar(el.getAttribute("data-fecha-estimada"));
       if(!sol) return;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS.comprasFechaEstimada);
+      if(!autorizado){ render(); return; }
       sol.etapas.comprasFechaEstimada.fechaEstimada = el.value;
       render();
       await guardarSolicitudes();
@@ -1513,6 +1561,8 @@ function render(){
     el.addEventListener("change", async ()=>{
       const sol = buscar(el.getAttribute("data-obs-recepcion"));
       if(!sol) return;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS.comprasRecepcion);
+      if(!autorizado){ render(); return; }
       sol.etapas.comprasRecepcion.observacion = el.value;
       await guardarSolicitudes();
     });
@@ -1522,6 +1572,8 @@ function render(){
     el.addEventListener("change", async ()=>{
       const sol = buscar(el.getAttribute("data-fecha-recepcion"));
       if(!sol) return;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS.comprasRecepcion);
+      if(!autorizado){ render(); return; }
       sol.etapas.comprasRecepcion.fechaRecibido = el.value;
       await guardarSolicitudes();
     });
@@ -1531,6 +1583,8 @@ function render(){
     el.addEventListener("change", async ()=>{
       const sol = buscar(el.getAttribute("data-factura"));
       if(!sol) return;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS.facturaRecibida);
+      if(!autorizado){ render(); return; }
       sol.etapas.facturaRecibida.valor = el.value;
       await guardarSolicitudes();
     });
@@ -1540,6 +1594,8 @@ function render(){
     el.addEventListener("click", async ()=>{
       const sol = buscar(el.getAttribute("data-material-recibido"));
       if(!sol) return;
+      const autorizado = await pedirAutorizacion(ETAPA_AUTORIZADOS.comprasRecepcion);
+      if(!autorizado) return;
       sol.etapas.comprasRecepcion.materialRecibido = true;
       if(!sol.etapas.comprasRecepcion.fechaRecibido){
         sol.etapas.comprasRecepcion.fechaRecibido = new Date().toISOString().slice(0,10);
@@ -1602,17 +1658,21 @@ document.getElementById("fArteFile").addEventListener("change", (e)=>{
   const file = e.target.files[0];
   if(!file) return;
   if(file.size > MAX_ARTE_BYTES){
-    avisar("Ese archivo pesa demasiado para adjuntarlo aquí (máx. ~0.6 MB en esta versión con Firestore). Usa el campo de link en su lugar.");
+    avisar("Ese archivo pesa demasiado para adjuntarlo aquí (máx. 0.6 MB por la capacidad del sistema). Pégalo como link (Drive, SharePoint, etc.) en el campo de abajo, o envíalo por correo directamente.");
     e.target.value = "";
     return;
   }
+  document.getElementById("arteFileInfo").classList.add("hidden");
+  document.getElementById("arteFileSubiendo").classList.remove("hidden");
   const reader = new FileReader();
   reader.onload = () => {
     arteFileData = { nombre: file.name, dataUrl: reader.result };
     document.getElementById("arteFileNombre").textContent = file.name;
+    document.getElementById("arteFileSubiendo").classList.add("hidden");
     document.getElementById("arteFileInfo").classList.remove("hidden");
   };
   reader.onerror = () => {
+    document.getElementById("arteFileSubiendo").classList.add("hidden");
     avisar("No se pudo leer el archivo. Intenta de nuevo o usa un link.");
   };
   reader.readAsDataURL(file);
@@ -1678,6 +1738,7 @@ function abrirModalNueva(){
   arteFileData = null;
   document.getElementById("fArteFile").value = "";
   document.getElementById("arteFileInfo").classList.add("hidden");
+  document.getElementById("arteFileSubiendo").classList.add("hidden");
   document.getElementById("fArteRegulatorio").value = "";
   document.getElementById("overlayNew").classList.add("open");
 }
@@ -1734,7 +1795,7 @@ document.getElementById("saveNew").addEventListener("click", async ()=>{
     arteArchivo: document.getElementById("fArteArchivo").value.trim(),
     arteArchivoNombre: arteFileData ? arteFileData.nombre : "",
     arteArchivoData: arteFileData ? arteFileData.dataUrl : "",
-    requiereRegulatorio: document.getElementById("fArteRegulatorio").value,
+    aprobacionRegulatorios: document.getElementById("fArteRegulatorio").value,
     etapas: etapasIniciales(),
     ultimoRechazo: null,
     rechazadaDefinitiva: false,
@@ -1779,8 +1840,15 @@ function avisar(mensaje){
   btn.addEventListener("click", onCerrar);
 }
 
-function pedirAutorizacion(){
-  if(auth.currentUser && esAutorizado(auth.currentUser.email)){
+function pedirAutorizacion(listaPermitida){
+  if(listaPermitida === null) return Promise.resolve(true); // etapa sin restricción
+  const lista = listaPermitida || AUTORIZADOS_EMAILS;
+  const normalizada = (email)=>{
+    const e = (email || "").trim().toLowerCase();
+    return lista.includes(e) || AUTORIZADOS_EMAILS.includes(e);
+  };
+
+  if(auth.currentUser && normalizada(auth.currentUser.email)){
     return Promise.resolve(true);
   }
   return new Promise((resolve)=>{
@@ -1804,7 +1872,7 @@ function pedirAutorizacion(){
       const errorEl = document.getElementById("authError");
       try{
         const cred = await auth.signInWithEmailAndPassword(email, password);
-        if(esAutorizado(cred.user.email)){
+        if(normalizada(cred.user.email)){
           limpiar();
           resolve(true);
         }else{
