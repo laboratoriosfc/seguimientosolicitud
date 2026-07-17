@@ -329,7 +329,7 @@
       <input type="text" id="fProductoOtro" placeholder="Nombre del producto">
     </div>
     <div class="field">
-      <label>Notas adicionales (opcional)</label>
+      <label>Notas adicionales</label>
       <textarea id="fDesc" placeholder="Detalle adicional de la solicitud"></textarea>
     </div>
 
@@ -481,7 +481,7 @@
       </select>
     </div>
     <div class="field">
-      <label>Información adicional del material (opcional)</label>
+      <label>Información adicional del material</label>
       <textarea id="fMaterialInfo" placeholder="Cualquier especificación adicional del material"></textarea>
     </div>
     <div class="field">
@@ -1022,17 +1022,6 @@ async function generarPdfDeElemento(el, nombreArchivo){
 
 async function imprimirSolicitud(sol){
   const linea = sol.linea === "Mix" ? (sol.lineaMix || "Mix") : sol.linea;
-  const filasEtapas = etapasDe(sol).map(def=>{
-    const e = sol.etapas[def.key] || {};
-    let valor = "—";
-    if(def.tipo === "check" || def.tipo === "recibida_orden") valor = e.hecho ? "Hecho" + (e.numeroOrden ? " (Orden " + e.numeroOrden + ")" : "") : "Pendiente";
-    else if(def.tipo === "firma") valor = e.hecho ? "Firmado por " + (e.nombreDirector || "—") : "Pendiente";
-    else if(def.tipo === "aprobacion_cond" || def.tipo === "aprobacion_obs") valor = e.estado === "aprobado" ? "Aprobado" + (e.observacion ? " — " + e.observacion : "") : "Pendiente";
-    else if(def.tipo === "fecha_estimada") valor = e.fechaEstimada || "—";
-    else if(def.tipo === "factura") valor = e.valor || "—";
-    else if(def.tipo === "recepcion") valor = e.materialRecibido ? "Recibido el " + e.fechaRecibido + (e.observacion ? " — " + e.observacion : "") : "Pendiente";
-    return `<tr><td style="padding:5px 8px; border-bottom:1px solid #ddd;"><b>${escapeHtml(def.area)}</b><br><span style="font-size:11px;color:#666;">${escapeHtml(def.label)}</span></td><td style="padding:5px 8px; border-bottom:1px solid #ddd;">${escapeHtml(valor)}</td></tr>`;
-  }).join("");
 
   const hoja = document.createElement("div");
   hoja.style.cssText = "position:fixed; left:-9999px; top:0; width:720px; background:#fff; padding:28px; font-family:Arial,Helvetica,sans-serif; color:#111; font-size:13px;";
@@ -1064,8 +1053,6 @@ async function imprimirSolicitud(sol){
     </div>
     ${sol.descripcion ? `<p>${escapeHtml(sol.descripcion)}</p>` : ""}
     ${sol.materialInfo ? `<p>${escapeHtml(sol.materialInfo)}</p>` : ""}
-    <h2 style="font-size:12.5px; text-transform:uppercase; letter-spacing:.04em; color:#3F6B1A; border-bottom:1px solid #ccc; padding-bottom:4px; margin-top:20px;">Seguimiento de aprobación</h2>
-    <table style="width:100%; border-collapse:collapse; margin-top:6px;">${filasEtapas}</table>
   `;
   document.body.appendChild(hoja);
   try{
@@ -1787,44 +1774,106 @@ document.getElementById("cancelNew").addEventListener("click", ()=>{
   document.getElementById("overlayNew").classList.remove("open");
 });
 document.getElementById("saveNew").addEventListener("click", async ()=>{
-  const titulo = document.getElementById("fTitulo").value.trim();
-  if(!titulo){ avisar("Ingresa un título para la solicitud."); return; }
-  const correo = document.getElementById("fCorreo").value.trim();
+  const val = (id) => document.getElementById(id).value.trim();
+
+  const area = val("fArea");
+  const nombre = val("fNombre");
+  const correo = val("fCorreo");
+  const linea = val("fLinea");
+  const lineaMix = val("fLineaMix");
+  const fechaSolicitud = val("fFechaSolicitud");
+  const fechaEntrega = val("fFechaEntrega");
+  const titulo = val("fTitulo");
+  const proposito = val("fProposito");
+  const propositoOtro = val("fPropositoOtro");
+  const prioridad = val("fPrioridad");
+  const producto = val("fProducto");
+  const productoOtro = val("fProductoOtro");
+  const descripcion = val("fDesc");
+  const esReimpresion = val("fEsReimpresion");
+  const tipoMaterial = val("fTipoMaterial");
+  const tipoMaterialOtro = val("fTipoMaterialOtro");
+  const gramaje = val("fGramaje");
+  const tipoImpresion = val("fTipoImpresion");
+  const tipoImpresionOtro = val("fTipoImpresionOtro");
+  const plastificado = val("fPlastificado");
+  const materialInfo = val("fMaterialInfo");
+  const cantidad = val("fCantidad");
+  const necesitaPrueba = val("fNecesitaPrueba");
+  const necesitaPruebaOtro = val("fNecesitaPruebaOtro");
+  const artePrueba = val("fArtePrueba");
+  const arteArchivoLink = val("fArteArchivo");
+  const aprobacionRegulatorios = val("fArteRegulatorio");
+
+  const validaciones = [
+    { invalida: !area, mensaje: "Selecciona el área." },
+    { invalida: !nombre, mensaje: "Ingresa el nombre del solicitante." },
+    { invalida: !correo, mensaje: "Ingresa el correo del solicitante." },
+    { invalida: area === "Unidades de negocio" && !linea, mensaje: "Selecciona la línea farmacéutica." },
+    { invalida: linea === "Mix" && !lineaMix, mensaje: "Especifica las líneas." },
+    { invalida: !fechaSolicitud, mensaje: "Selecciona la fecha de solicitud." },
+    { invalida: !fechaEntrega, mensaje: "Selecciona la fecha de entrega." },
+    { invalida: !titulo, mensaje: "Ingresa un título para la solicitud." },
+    { invalida: !proposito, mensaje: "Selecciona el propósito del material." },
+    { invalida: proposito === "Otros" && !propositoOtro, mensaje: "Especifica el propósito." },
+    { invalida: !prioridad, mensaje: "Selecciona la prioridad." },
+    { invalida: !producto, mensaje: "Selecciona el producto." },
+    { invalida: producto === "Otro producto" && !productoOtro, mensaje: "Especifica el producto." },
+    { invalida: !descripcion, mensaje: "Escribe las notas/descripción de la solicitud." },
+    { invalida: !tipoMaterial, mensaje: "Selecciona el tipo de material." },
+    { invalida: tipoMaterial === "Otro" && !tipoMaterialOtro, mensaje: "Especifica el tipo de material." },
+    { invalida: !gramaje, mensaje: "Selecciona el gramaje del material." },
+    { invalida: !tipoImpresion, mensaje: "Selecciona el tipo de impresión." },
+    { invalida: tipoImpresion === "Otros" && !tipoImpresionOtro, mensaje: "Especifica el tipo de impresión." },
+    { invalida: !plastificado, mensaje: "Selecciona el plastificado." },
+    { invalida: !cantidad, mensaje: "Ingresa la cantidad a solicitar." },
+    { invalida: !esReimpresion, mensaje: "Selecciona si es reimpresión." },
+    { invalida: !arteFileData && !arteArchivoLink, mensaje: "Adjunta el archivo del arte o pega un link." },
+    { invalida: !materialInfo, mensaje: "Escribe la información adicional del material." },
+    { invalida: !necesitaPrueba, mensaje: "Selecciona si necesita prueba." },
+    { invalida: necesitaPrueba === "Otro" && !necesitaPruebaOtro, mensaje: "Especifica el tipo de prueba." },
+    { invalida: !artePrueba, mensaje: "Selecciona una opción en Arte/Prueba." },
+    { invalida: !aprobacionRegulatorios, mensaje: "Selecciona si cuenta con aprobación de Asuntos Regulatorios." }
+  ];
+
+  for(const regla of validaciones){
+    if(regla.invalida){ avisar(regla.mensaje); return; }
+  }
 
   const nextNum = solicitudes.reduce((m,s)=> Math.max(m, parseInt(s.folio.split("-")[1]||0)), 0) + 1;
 
   const nuevaSolicitud = {
     id: uid(), folio: folio(nextNum),
-    area: document.getElementById("fArea").value,
-    nombre: document.getElementById("fNombre").value.trim(),
+    area: area,
+    nombre: nombre,
     correo: correo,
-    linea: document.getElementById("fLinea").value,
-    lineaMix: document.getElementById("fLineaMix").value.trim(),
-    fechaSolicitud: document.getElementById("fFechaSolicitud").value,
-    fechaEntrega: document.getElementById("fFechaEntrega").value,
+    linea: linea,
+    lineaMix: lineaMix,
+    fechaSolicitud: fechaSolicitud,
+    fechaEntrega: fechaEntrega,
     titulo: titulo,
-    proposito: document.getElementById("fProposito").value,
-    propositoOtro: document.getElementById("fPropositoOtro").value.trim(),
-    prioridad: document.getElementById("fPrioridad").value,
-    producto: document.getElementById("fProducto").value,
-    productoOtro: document.getElementById("fProductoOtro").value.trim(),
-    descripcion: document.getElementById("fDesc").value.trim(),
-    tipoMaterial: document.getElementById("fTipoMaterial").value,
-    tipoMaterialOtro: document.getElementById("fTipoMaterialOtro").value.trim(),
-    gramaje: document.getElementById("fGramaje").value,
-    tipoImpresion: document.getElementById("fTipoImpresion").value,
-    tipoImpresionOtro: document.getElementById("fTipoImpresionOtro").value.trim(),
-    plastificado: document.getElementById("fPlastificado").value,
-    materialInfo: document.getElementById("fMaterialInfo").value.trim(),
-    cantidad: document.getElementById("fCantidad").value.trim(),
-    esReimpresion: document.getElementById("fEsReimpresion").value,
-    necesitaPrueba: document.getElementById("fNecesitaPrueba").value,
-    necesitaPruebaOtro: document.getElementById("fNecesitaPruebaOtro").value.trim(),
-    artePrueba: document.getElementById("fArtePrueba").value,
-    arteArchivo: document.getElementById("fArteArchivo").value.trim(),
+    proposito: proposito,
+    propositoOtro: propositoOtro,
+    prioridad: prioridad,
+    producto: producto,
+    productoOtro: productoOtro,
+    descripcion: descripcion,
+    tipoMaterial: tipoMaterial,
+    tipoMaterialOtro: tipoMaterialOtro,
+    gramaje: gramaje,
+    tipoImpresion: tipoImpresion,
+    tipoImpresionOtro: tipoImpresionOtro,
+    plastificado: plastificado,
+    materialInfo: materialInfo,
+    cantidad: cantidad,
+    esReimpresion: esReimpresion,
+    necesitaPrueba: necesitaPrueba,
+    necesitaPruebaOtro: necesitaPruebaOtro,
+    artePrueba: artePrueba,
+    arteArchivo: arteArchivoLink,
     arteArchivoNombre: arteFileData ? arteFileData.nombre : "",
     arteArchivoData: arteFileData ? arteFileData.dataUrl : "",
-    aprobacionRegulatorios: document.getElementById("fArteRegulatorio").value,
+    aprobacionRegulatorios: aprobacionRegulatorios,
     etapas: etapasIniciales(),
     ultimoRechazo: null,
     rechazadaDefinitiva: false,
