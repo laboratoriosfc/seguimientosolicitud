@@ -590,11 +590,13 @@ const DIRECCION_MERCADEO_EMAILS = ["juzcategui@fclaboratorios.com", "gcelli@fcla
 const PRESIDENCIA_EMAILS = ["btorres@fclaboratorios.com", "lfontana@fclaboratorios.com"];
 const PRESUPUESTOS_EMAILS = ["mzambrano@fclaboratorios.com"];
 const FINANZAS_EMAILS = ["drosa@fclaboratorios.com"];
+const REGULATORIOS_EMAILS = ["anursikian@fclaboratorios.com", "sgomes@fclaboratorios.com"];
 
 // Qué lista de correos puede completar cada etapa. "null" = sin restricción
 // (cualquiera puede completarla, sin pedir inicio de sesión).
 const ETAPA_AUTORIZADOS = {
   comprasRecibida: AUTORIZADOS_EMAILS,
+  regulatorios: REGULATORIOS_EMAILS,
   gerenciaPago: GERENCIA_MERCADEO_EMAILS,
   direccionFirma: DIRECCION_MERCADEO_EMAILS,
   presidencia: PRESIDENCIA_EMAILS,
@@ -607,7 +609,7 @@ const ETAPA_AUTORIZADOS = {
 
 const TODOS_AUTORIZADOS_EMAILS = Array.from(new Set([
   ...AUTORIZADOS_EMAILS, ...GERENCIA_MERCADEO_EMAILS, ...DIRECCION_MERCADEO_EMAILS,
-  ...PRESIDENCIA_EMAILS, ...PRESUPUESTOS_EMAILS, ...FINANZAS_EMAILS
+  ...PRESIDENCIA_EMAILS, ...PRESUPUESTOS_EMAILS, ...FINANZAS_EMAILS, ...REGULATORIOS_EMAILS
 ]));
 function esAutorizado(email){
   return TODOS_AUTORIZADOS_EMAILS.includes((email || "").trim().toLowerCase());
@@ -976,6 +978,7 @@ async function guardarSolicitudes(){
 
 const ETAPAS_DEF = [
   { key: "comprasRecibida", area: "Compras", label: "Solicitud recibida", tipo: "recibida_orden", accion: "Marcar como recibida" },
+  { key: "regulatorios", area: "Asuntos Regulatorios", label: "Aprobación de arte", tipo: "aprobacion_obs" },
   { key: "gerenciaPago", area: "Gerencia de Mercadeo", label: "Solicitud de pago realizada", tipo: "check", accion: "Marcar pago realizado" },
   { key: "direccionFirma", area: "Dirección de Mercadeo", label: "Firma del director del área", tipo: "firma" },
   { key: "presidencia", area: "Presidencia", label: "Aprobación de Presidencia", tipo: "aprobacion_cond" },
@@ -988,6 +991,7 @@ const ETAPAS_DEF = [
 function etapasIniciales(){
   return {
     comprasRecibida: { hecho: false, numeroOrden: "" },
+    regulatorios: { estado: "pendiente", observacion: "" },
     gerenciaPago: { hecho: false },
     direccionFirma: { hecho: false, nombreDirector: "" },
     presidencia: { estado: "pendiente", observacion: "" },
@@ -1389,12 +1393,21 @@ function renderTimeline(sol){
 function rechazarEtapaEnSolicitud(sol, key, observacion){
   const def = ETAPAS_DEF.find(d => d.key === key);
   const inicial = etapasIniciales();
-  const keysAReiniciar = ["direccionFirma", "presidencia", "presupuestos", "finanzas"];
+  let keysAReiniciar, regresoA;
+  if(key === "regulatorios"){
+    // Asuntos Regulatorios va antes de Gerencia de Mercadeo: si rechaza,
+    // solo se reinicia esa misma etapa (nada más ha avanzado todavía).
+    keysAReiniciar = ["regulatorios"];
+    regresoA = "Compras";
+  }else{
+    keysAReiniciar = ["direccionFirma", "presidencia", "presupuestos", "finanzas"];
+    regresoA = "Gerencia de Mercadeo";
+  }
   sol.ultimoRechazo = {
     etapa: def.area + " — " + def.label,
     observacion,
     fecha: Date.now(),
-    regresoA: "Gerencia de Mercadeo",
+    regresoA,
     usuario: (auth.currentUser && auth.currentUser.email) || "—"
   };
   keysAReiniciar.forEach(k => { sol.etapas[k] = inicial[k]; });
