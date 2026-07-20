@@ -1145,6 +1145,14 @@ function formatDuracion(ms){
 }
 
 function calcularEstadisticas(){
+  const conteos = { total: solicitudes.length, enProceso: 0, completadas: 0, rechazadas: 0 };
+  solicitudes.forEach(s=>{
+    const est = estadoSolicitud(s);
+    if(est === "completada") conteos.completadas++;
+    else if(est === "rechazada") conteos.rechazadas++;
+    else conteos.enProceso++;
+  });
+
   const porLinea = {};
   solicitudes.forEach(s=>{
     const key = s.linea ? (s.linea === "Mix" ? (s.lineaMix || "Mix") : s.linea) : "Sin línea";
@@ -1182,6 +1190,7 @@ function calcularEstadisticas(){
   });
 
   return {
+    conteos,
     porLinea,
     porEtapa: Object.entries(statsPorEtapa).map(([k,v]) => ({ etapa: k, promedioMs: v.suma / v.cuenta, cuenta: v.cuenta })),
     leadTime: leadCount ? leadSum / leadCount : null,
@@ -1201,7 +1210,15 @@ async function mostrarEstadisticas(){
   const entradasLinea = Object.entries(stats.porLinea).sort((a,b)=>b[1]-a[1]);
 
   cont.innerHTML = `
-    <div class="section-label" style="margin-top:0;">Solicitudes por línea</div>
+    <div class="section-label" style="margin-top:0;">Resumen general</div>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px;">
+      <div style="text-align:center; padding:8px; background:var(--bg); border-radius:8px;"><div style="font-family:Georgia,serif; font-size:20px; color:var(--accent-dark);">${stats.conteos.total}</div><div style="font-size:10px; color:var(--ink-soft); text-transform:uppercase;">Total</div></div>
+      <div style="text-align:center; padding:8px; background:var(--bg); border-radius:8px;"><div style="font-family:Georgia,serif; font-size:20px; color:var(--pendiente);">${stats.conteos.enProceso}</div><div style="font-size:10px; color:var(--ink-soft); text-transform:uppercase;">En proceso</div></div>
+      <div style="text-align:center; padding:8px; background:var(--bg); border-radius:8px;"><div style="font-family:Georgia,serif; font-size:20px; color:var(--aprobado);">${stats.conteos.completadas}</div><div style="font-size:10px; color:var(--ink-soft); text-transform:uppercase;">Completadas</div></div>
+      <div style="text-align:center; padding:8px; background:var(--bg); border-radius:8px;"><div style="font-family:Georgia,serif; font-size:20px; color:var(--rechazado);">${stats.conteos.rechazadas}</div><div style="font-size:10px; color:var(--ink-soft); text-transform:uppercase;">Rechazadas</div></div>
+    </div>
+
+    <div class="section-label">Solicitudes por línea</div>
     ${entradasLinea.length
       ? '<div style="position:relative; height:220px;"><canvas id="chartLinea"></canvas></div>'
       : '<p style="font-size:12.5px; color:var(--ink-soft);">Aún no hay solicitudes registradas.</p>'}
@@ -1533,7 +1550,7 @@ function render(){
         ${renderTimeline(s)}
       </div>
       <div class="card-actions">
-        <span>${(!s.rechazadaDefinitiva && estadoSolicitud(s) !== "completada") ? `<button class="link-btn" data-cancelar-definitivo="${s.id}">Marcar solicitud como cancelada</button>` : ""}</span>
+        <span>${(!s.rechazadaDefinitiva && estadoSolicitud(s) !== "completada") ? `<button class="link-btn" data-cancelar-definitivo="${s.id}">Marcar solicitud como rechazada</button>` : ""}</span>
         <span style="display:flex; gap:14px;">
           <button class="link-btn" data-historial="${s.id}">Historial</button>
           <button class="link-btn" data-print="${s.id}">Descargar PDF</button>
@@ -1770,9 +1787,9 @@ function render(){
       if(!sol) return;
       const autorizado = await pedirAutorizacion();
       if(!autorizado) return;
-      if(!(await confirmarAccion("¿Marcar esta solicitud como cancelada? No podrá deshacerse desde aquí.", "Cancelar solicitud"))) return;
+      if(!(await confirmarAccion("¿Marcar esta solicitud como rechazada? No podrá deshacerse desde aquí.", "Rechazar solicitud"))) return;
       sol.rechazadaDefinitiva = true;
-      agregarHistorial(sol, "Solicitud marcada como cancelada", "");
+      agregarHistorial(sol, "Solicitud marcada como rechazada", "");
       render();
       await guardarSolicitudes();
     });
