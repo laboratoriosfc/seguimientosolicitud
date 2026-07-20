@@ -800,6 +800,7 @@ const NOTIFICAR_EMAILS = ["mfernandez@fclaboratorios.com", "agarcia@fclaboratori
 const EMAILJS_PUBLIC_KEY = "B-XaiLe_dZtxNwWxB";
 const EMAILJS_SERVICE_ID = "service_dardcjo";
 const EMAILJS_TEMPLATE_ID = "template_9bjbsmj";
+const APP_URL = "https://laboratoriosfc.github.io/seguimientosolicitud/";
 async function enviarNotificacionAutomatica(sol){
   if(EMAILJS_PUBLIC_KEY === "TU_PUBLIC_KEY") return false;
   try{
@@ -813,7 +814,8 @@ async function enviarNotificacionAutomatica(sol){
       solicitante: sol.nombre || "—",
       area: sol.area || "—",
       prioridad: sol.prioridad || "—",
-      fecha_entrega: sol.fechaEntrega || "—"
+      fecha_entrega: sol.fechaEntrega || "—",
+      link: APP_URL
     });
     return true;
   }catch(e){
