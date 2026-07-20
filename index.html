@@ -978,7 +978,7 @@ async function guardarSolicitudes(){
 
 const ETAPAS_DEF = [
   { key: "comprasRecibida", area: "Compras", label: "Solicitud recibida", tipo: "recibida_orden", accion: "Marcar como recibida" },
-  { key: "regulatorios", area: "Asuntos Regulatorios", label: "Aprobación de arte", tipo: "aprobacion_obs" },
+  { key: "regulatorios", area: "Asuntos Regulatorios", label: "Aprobación de arte", tipo: "aprobacion_obs", condicional: true },
   { key: "gerenciaPago", area: "Gerencia de Mercadeo", label: "Solicitud de pago realizada", tipo: "check", accion: "Marcar pago realizado" },
   { key: "direccionFirma", area: "Dirección de Mercadeo", label: "Firma del director del área", tipo: "firma" },
   { key: "presidencia", area: "Presidencia", label: "Aprobación de Presidencia", tipo: "aprobacion_cond" },
@@ -1003,7 +1003,7 @@ function etapasIniciales(){
   };
 }
 function etapasDe(sol){
-  return ETAPAS_DEF.slice();
+  return ETAPAS_DEF.filter(e => !e.condicional || sol.aprobacionRegulatorios === "No");
 }
 function estadoSolicitud(sol){
   if(sol.rechazadaDefinitiva) return "rechazada";
